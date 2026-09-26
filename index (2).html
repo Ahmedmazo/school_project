@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نظام إدارة جدول الحصص - حضانة</title>
+<style>
+    * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI', Tahoma, Arial, sans-serif; }
+    body { background:#f0f2f5; color:#212529; min-height:100vh; }
+    .center-screen { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;
+        background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); }
+    .card { background:#fff; border-radius:16px; padding:30px; max-width:420px; width:100%; box-shadow:0 10px 40px rgba(0,0,0,.25); }
+    h1,h2,h3 { margin-bottom:14px; }
+    .field { margin-bottom:14px; }
+    .field label { display:block; margin-bottom:6px; font-weight:bold; font-size:14px; color:#495057; }
+    input, select, textarea { width:100%; padding:10px; border:2px solid #dee2e6; border-radius:8px; font-size:15px; font-family:inherit; }
+    input:focus, select:focus, textarea:focus { outline:none; border-color:#667eea; }
+    .btn { border:none; border-radius:8px; padding:10px 18px; font-size:14px; font-weight:bold; cursor:pointer; transition:.2s; color:#fff; }
+    .btn:hover { transform:translateY(-1px); filter:brightness(1.05); }
+    .btn-primary { background:#667eea; } .btn-success { background:#198754; } .btn-danger { background:#dc3545; }
+    .btn-warning { background:#fd7e14; } .btn-info { background:#0dcaf0; color:#000; } .btn-secondary { background:#6c757d; }
+    .btn-block { width:100%; padding:12px; margin-top:6px; }
+    .msg { padding:10px 14px; border-radius:8px; margin-bottom:14px; font-size:14px; }
+    .msg-error { background:#f8d7da; color:#842029; } .msg-ok { background:#d1e7dd; color:#0f5132; }
+    header.topbar { background:#fff; padding:14px 24px; display:flex; align-items:center; justify-content:space-between;
+        box-shadow:0 2px 8px rgba(0,0,0,.08); position:sticky; top:0; z-index:100; flex-wrap:wrap; gap:10px; }
+    header.topbar .brand { display:flex; align-items:center; gap:10px; font-weight:bold; font-size:18px; color:#667eea; }
+    .tabs { display:flex; gap:6px; flex-wrap:wrap; padding:10px 24px; background:#fff; border-bottom:1px solid #eee; }
+    .tab { padding:9px 16px; border:none; border-radius:20px; background:#f1f3f5; cursor:pointer; font-size:14px; font-weight:bold; color:#495057; }
+    .tab.active { background:#667eea; color:#fff; }
+    .content { padding:24px; max-width:1200px; margin:0 auto; }
+    .panel { display:none; } .panel.active { display:block; }
+    .item-card { background:#f8f9fa; border-radius:10px; padding:12px 16px; display:flex; align-items:center; justify-content:space-between;
+        margin-bottom:8px; gap:10px; flex-wrap:wrap; }
+    .badge { background:#e7f1ff; color:#0d6efd; padding:4px 10px; border-radius:12px; font-size:12px; font-weight:bold; }
+    .badge-warn { background:#fff3cd; color:#997404; } .badge-danger { background:#f8d7da; color:#842029; }
+    table { width:100%; border-collapse:collapse; background:#fff; border-radius:10px; overflow:hidden; }
+    th, td { border:1px solid #e9ecef; padding:10px; text-align:center; font-size:14px; vertical-align:middle; }
+    th { background:#667eea; color:#fff; }
+    td.lesson-cell { cursor:pointer; position:relative; min-width:110px; }
+    td.lesson-cell:hover { background:#f1f5ff; }
+    .cell-subject { font-weight:bold; font-size:14px; }
+    .cell-people { font-size:12px; color:#495057; margin-top:2px; }
+    .cell-photo { font-size:12px; color:#0d6efd; margin-top:2px; }
+    .cell-comment { font-size:11px; color:#dc3545; margin-top:2px; }
+    .report-dot { position:absolute; top:3px; left:3px; background:#0d6efd; color:#fff; border-radius:50%; width:20px; height:20px;
+        font-size:11px; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:5; }
+    .day-tabs { display:flex; gap:6px; margin-bottom:14px; flex-wrap:wrap; }
+    .day-tab { padding:8px 14px; border-radius:8px; border:2px solid #667eea; background:#fff; color:#667eea; cursor:pointer; font-weight:bold; font-size:13px; }
+    .day-tab.active { background:#667eea; color:#fff; }
+    .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:2000; align-items:center; justify-content:center; padding:16px; }
+    .modal.active { display:flex; }
+    .modal-box { background:#fff; border-radius:14px; padding:24px; max-width:520px; width:100%; max-height:90vh; overflow:auto; }
+    .modal-box h2 { display:flex; justify-content:space-between; align-items:center; }
+    .close-x { background:none; border:none; font-size:22px; cursor:pointer; color:#888; }
+    .status-dot { position:fixed; bottom:14px; left:14px; background:#198754; color:#fff; padding:8px 14px; border-radius:20px; font-size:12px; z-index:1500; box-shadow:0 2px 8px rgba(0,0,0,.25); }
+    .status-dot.off { background:#dc3545; }
+    .reply-box { background:#e7f1ff; border-right:4px solid #0d6efd; padding:8px 12px; border-radius:6px; margin-top:6px; font-size:13px; }
+    small.muted { color:#888; }
+    @media (max-width:700px){ .content{padding:14px;} header.topbar{padding:10px 14px;} }
+</style>
+</head>
+<body>
+
+<!-- ============ شاشة الدخول ============ -->
+<div id="loginScreen" class="center-screen">
+    <div class="card">
+        <h1 style="text-align:center;color:#667eea;">📚 جدول الحصص</h1>
+        <p style="text-align:center;color:#888;margin-bottom:20px;">سجّل دخولك</p>
+        <div id="loginMsg"></div>
+        <div class="field"><label>البريد الإلكتروني</label><input type="email" id="loginEmail" placeholder="example@school.com"></div>
+        <div class="field"><label>كلمة السر</label><input type="password" id="loginPass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
+        <button class="btn btn-primary btn-block" onclick="doLogin()">دخول</button>
+    </div>
+</div>
+
+<!-- ============ تطبيق الأدمن ============ -->
+<div id="adminApp" style="display:none;">
+    <header class="topbar">
+        <div class="brand">📚 <span id="adminSchoolName">جدول الحصص</span></div>
+        <div><span class="badge">👑 أدمن — <span id="adminNameSpan"></span></span>
+            <button class="btn btn-secondary" onclick="doLogout()" style="margin-right:10px;">🚪 خروج</button></div>
+    </header>
+    <div class="tabs">
+        <button class="tab active" onclick="showPanel('p-settings')">⚙️ الإعدادات</button>
+        <button class="tab" onclick="showPanel('p-teachers')">👩‍🏫 المدرّسات</button>
+        <button class="tab" onclick="showPanel('p-subjects')">📚 المواد</button>
+        <button class="tab" onclick="showPanel('p-classes')">🏫 الكلاسات</button>
+        <button class="tab" onclick="showPanel('p-photographers')">📷 المصورات</button>
+        <button class="tab" onclick="showPanel('p-times')">🕐 الأوقات</button>
+        <button class="tab" onclick="showPanel('p-schedule')">📅 الجدول الرئيسي</button>
+        <button class="tab" onclick="showPanel('p-absence')">🔄 الغياب والاحتياط</button>
+        <button class="tab" onclick="showPanel('p-supervisors')">🧑‍💼 السوبرفايزرز</button>
+        <button class="tab" onclick="showPanel('p-reports')">📋 التقارير</button>
+    </div>
+    <div class="content">
+        <div id="p-settings" class="panel active">
+            <h2>⚙️ إعدادات المدرسة</h2>
+            <div class="field" style="max-width:400px;"><label>اسم المدرسة</label><input type="text" id="schoolNameInput" onchange="saveSchoolName()"></div>
+            <p class="msg msg-ok">البيانات كلها بتتحفظ وتتزامن لحظيًا على كل الأجهزة اللي مسجل دخول عليها أدمن أو سوبرفايزر.</p>
+            <h3 style="margin-top:24px;">💾 نسخة احتياطية</h3>
+            <p class="muted" style="margin-bottom:10px;">نزّلي كل البيانات (المدرّسات، الكلاسات، الجدول...) في ملف JSON على جهازك، وتقدري ترجّعيه تاني في أي وقت.</p>
+            <button class="btn btn-primary" onclick="downloadBackup()">📥 تنزيل نسخة احتياطية</button>
+            <label class="btn btn-info" style="display:inline-block;">📤 استيراد نسخة احتياطية<input type="file" accept=".json" onchange="restoreBackup(this)" style="display:none;"></label>
+        </div>
+
+        <div id="p-teachers" class="panel">
+            <h2>👩‍🏫 المدرّسات</h2>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px;">
+                <div class="field" style="flex:1;min-width:200px;margin-bottom:0;"><label>اسم المدرّسة</label><input type="text" id="newTeacherName"></div>
+                <div class="field" style="width:130px;margin-bottom:0;"><label>الحد الأقصى</label><input type="number" id="newTeacherLimit" value="20"></div>
+                <button class="btn btn-success" onclick="addTeacher()">➕ إضافة</button>
+            </div>
+            <div id="teachersList"></div>
+        </div>
+
+        <div id="p-subjects" class="panel">
+            <h2>📚 المواد</h2>
+            <div style="display:flex;gap:10px;margin-bottom:16px;">
+                <input type="text" id="newSubjectName" placeholder="اسم المادة" style="flex:1;">
+                <button class="btn btn-success" onclick="addSubject()">➕ إضافة</button>
+            </div>
+            <div id="subjectsList"></div>
+        </div>
+
+        <div id="p-classes" class="panel">
+            <h2>🏫 الكلاسات</h2>
+            <div style="display:flex;gap:10px;margin-bottom:16px;">
+                <input type="text" id="newClassName" placeholder="اسم الكلاس" style="flex:1;">
+                <button class="btn btn-success" onclick="addClass()">➕ إضافة</button>
+            </div>
+            <div id="classesList"></div>
+        </div>
+
+        <div id="p-photographers" class="panel">
+            <h2>📷 المصورات</h2>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px;">
+                <div class="field" style="flex:1;min-width:200px;margin-bottom:0;"><label>اسم المصورة</label><input type="text" id="newPhotoName"></div>
+                <div class="field" style="width:130px;margin-bottom:0;"><label>الحد الأقصى</label><input type="number" id="newPhotoLimit" value="20"></div>
+                <button class="btn btn-success" onclick="addPhotographer()">➕ إضافة</button>
+            </div>
+            <div id="photographersList"></div>
+        </div>
+
+        <div id="p-times" class="panel">
+            <h2>🕐 الأوقات</h2>
+            <div style="display:flex;gap:10px;margin-bottom:16px;">
+                <input type="text" id="newTimeName" placeholder="مثال: 9:00 - 9:40" style="flex:1;">
+                <button class="btn btn-success" onclick="addTime()">➕ إضافة</button>
+            </div>
+            <div id="timesList"></div>
+        </div>
+
+        <div id="p-schedule" class="panel">
+            <h2>📅 الجدول الرئيسي</h2>
+            <div class="day-tabs" id="adminDayTabs"></div>
+            <div style="overflow-x:auto;"><div id="adminScheduleGrid"></div></div>
+        </div>
+
+        <div id="p-absence" class="panel">
+            <h2>🔄 الغياب والاحتياط</h2>
+            <div class="day-tabs" id="absenceDayTabs"></div>
+            <h3>👩‍🏫 المدرّسات الموجودات في اليوم <small class="muted">(شيلي العلامة عن الغايبة)</small></h3>
+            <div id="absenceTeachersList"></div>
+            <h3 style="margin-top:20px;">⚠️ حصص محتاجة بديلة</h3>
+            <div id="absenceNeedList"></div>
+            <h3 style="margin-top:20px;">🔁 التبديلات اللي اتعملت</h3>
+            <button class="btn btn-warning" onclick="revertAllDay()">↩️ إرجاع كل تبديلات اليوم</button>
+            <div id="absenceDoneList"></div>
+        </div>
+
+        <div id="p-supervisors" class="panel">
+            <h2>🧑‍💼 إدارة السوبرفايزرز</h2>
+            <div class="msg msg-ok">كل سوبرفايزر بيدخل بإيميله وكلمة السر، وبيشوف الكلاسات اللي انتي محددهاله بس.</div>
+            <div style="background:#f8f9fa;border-radius:10px;padding:16px;margin-bottom:18px;">
+                <div class="field"><label>الاسم</label><input type="text" id="svName"></div>
+                <div class="field"><label>البريد الإلكتروني</label><input type="email" id="svEmail"></div>
+                <div class="field"><label>كلمة السر (6 حروف على الأقل)</label><input type="text" id="svPass"></div>
+                <div class="field"><label>الكلاسات المسؤولة عنها</label><div id="svClassesCheckboxes" style="display:flex;flex-wrap:wrap;gap:8px;"></div></div>
+                <button class="btn btn-success" onclick="addSupervisor()">➕ إضافة سوبرفايزر</button>
+            </div>
+            <div id="supervisorsList"></div>
+        </div>
+
+        <div id="p-reports" class="panel">
+            <h2>📋 كل التقارير</h2>
+            <div class="field" style="max-width:300px;"><label>فلترة حسب الكلاس</label>
+                <select id="reportsClassFilter" onchange="renderAllReports()"><option value="">-- الكل --</option></select>
+            </div>
+            <div id="allReportsList"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ============ تطبيق السوبرفايزر ============ -->
+<div id="supervisorApp" style="display:none;">
+    <header class="topbar">
+        <div class="brand">📚 <span id="svSchoolName">جدول الحصص</span></div>
+        <div><span class="badge">🧑‍💼 <span id="svNameSpan"></span></span>
+            <button class="btn btn-secondary" onclick="doLogout()" style="margin-right:10px;">🚪 خروج</button></div>
+    </header>
+    <div class="content">
+        <div class="field" style="max-width:300px;"><label>اختاري الكلاس</label>
+            <select id="svClassSelect" onchange="renderSvSchedule()"></select>
+        </div>
+        <div class="day-tabs" id="svDayTabs"></div>
+        <div style="overflow-x:auto;"><table id="svScheduleTable"></table></div>
+        <h3 style="margin-top:26px;">📋 تقاريري وردود المشرف</h3>
+        <div id="svMyReports"></div>
+    </div>
+</div>
+
+<!-- ============ مودال تعديل الحصة (أدمن) ============ -->
+<div class="modal" id="cellModal">
+    <div class="modal-box">
+        <h2>تعديل الحصة <button class="close-x" onclick="closeCellModal()">×</button></h2>
+        <div class="field"><label>النوع</label>
+            <select id="cellType" onchange="toggleCellType()"><option value="lesson">حصة عادية</option><option value="break">فترة راحة</option></select>
+        </div>
+        <div id="cellLessonFields">
+            <div class="field"><label>المادة</label><select id="cellSubject"></select></div>
+            <div class="field"><label>المدرّسة الأولى</label><select id="cellTeacher1"></select></div>
+            <div class="field"><label>المدرّسة الثانية (اختياري)</label><select id="cellTeacher2"></select></div>
+            <div class="field"><label>📷 المصورة (اختياري)</label><select id="cellPhotographer"></select></div>
+        </div>
+        <div class="field"><label>تعليق (اختياري)</label><input type="text" id="cellComment"></div>
+        <div id="cellConflictMsg"></div>
+        <div style="display:flex;gap:10px;margin-top:10px;">
+            <button class="btn btn-success" onclick="saveCellModal()">💾 حفظ</button>
+            <button class="btn btn-danger" onclick="clearCellModal()">🗑️ مسح الحصة</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============ مودال التقارير (لحصة معينة) ============ -->
+<div class="modal" id="reportModal">
+    <div class="modal-box">
+        <h2 id="reportModalTitle">تقارير الحصة <button class="close-x" onclick="closeReportModal()">×</button></h2>
+        <div id="reportModalBody"></div>
+    </div>
+</div>
+
+<div id="statusDot" class="status-dot" style="display:none;">✅ متصل</div>
+
+<script type="module">
+import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import {
+    getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged,
+    createUserWithEmailAndPassword
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+import {
+    getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot,
+    collection, addDoc, query, where
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAeqPW3OItZsmzPZYF8FFMK95CqCFNIOPs",
+  authDomain: "school-project-62292.firebaseapp.com",
+  projectId: "school-project-62292",
+  storageBucket: "school-project-62292.firebasestorage.app",
+  messagingSenderId: "518873333485",
+  appId: "1:518873333485:web:602cbc313a2ebc316616e4"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// ============ الحالة العامة ============
+let curUser = null, curRole = null, curName = '', curClasses = [];
+let teachers = [], subjects = [], classes = [], photographers = [], times = [], schedule = {}, schoolNameText = '';
+let absent = {}; // { 'الأحد': ['اسم مدرّسة', ...] }
+const days = ['السبت','الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة'];
+let adminDay = days[1], svDay = days[1];
+let absenceDay = days[1];
+let unsubMain = null, unsubReports = null, unsubSupervisors = null;
+let allReports = [], supervisors = [];
+let currentCellKey = null, currentReportKey = null;
+
+window.onLoginKeyup = () => {};
+
+// ============ أدوات عامة ============
+function esc(s){ return (s||'').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function keyOf(cls, day, time){ return `${cls}__${day}__${time}`; }
+function setStatus(on, text){
+    const el = document.getElementById('statusDot');
+    el.style.display = 'flex'; el.classList.toggle('off', !on);
+    el.textContent = (on ? '✅ ' : '⚠️ ') + text;
+}
+
+// ============ تسجيل الدخول ============
+window.doLogin = async function() {
+    const email = document.getElementById('loginEmail').value.trim();
+    const pass = document.getElementById('loginPass').value;
+    const msg = document.getElementById('loginMsg');
+    msg.innerHTML = '';
+    if (!email || !pass) { msg.innerHTML = '<div class="msg msg-error">اكتب الإيميل وكلمة السر</div>'; return; }
+    try {
+        await signInWithEmailAndPassword(auth, email, pass);
+    } catch (e) {
+        msg.innerHTML = `<div class="msg msg-error">❌ بيانات الدخول غلط أو الحساب مش موجود</div>`;
+    }
+};
+window.doLogout = function() { signOut(auth); };
+
+onAuthStateChanged(auth, async (user) => {
+    cleanupSubs();
+    if (!user) {
+        curUser = null; curRole = null;
+        document.getElementById('loginScreen').style.display = 'flex';
+        document.getElementById('adminApp').style.display = 'none';
+        document.getElementById('supervisorApp').style.display = 'none';
+        document.getElementById('statusDot').style.display = 'none';
+        return;
+    }
+    curUser = user;
+    let udoc;
+    try { udoc = await getDoc(doc(db, 'users', user.uid)); }
+    catch (e) { document.getElementById('loginMsg').innerHTML = '<div class="msg msg-error">تعذّر قراءة بيانات الحساب. كلّمي الأدمن.</div>'; await signOut(auth); return; }
+    if (!udoc.exists()) {
+        document.getElementById('loginMsg').innerHTML = '<div class="msg msg-error">الحساب مش مربوط بصلاحية. كلّمي الأدمن.</div>';
+        await signOut(auth); return;
+    }
+    const d = udoc.data();
+    if (d.disabled) {
+        document.getElementById('loginMsg').innerHTML = '<div class="msg msg-error">الحساب ده متوقف حاليًا.</div>';
+        await signOut(auth); return;
+    }
+    curRole = d.role; curName = d.name || user.email; curClasses = d.classes || [];
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('loginEmail').value = ''; document.getElementById('loginPass').value = ''; document.getElementById('loginMsg').innerHTML = '';
+
+    subscribeMain();
+    if (curRole === 'admin') {
+        document.getElementById('adminApp').style.display = 'block';
+        document.getElementById('supervisorApp').style.display = 'none';
+        document.getElementById('adminNameSpan').textContent = curName;
+        subscribeAllReports();
+        subscribeSupervisors();
+    } else {
+        document.getElementById('adminApp').style.display = 'none';
+        document.getElementById('supervisorApp').style.display = 'block';
+        document.getElementById('svNameSpan').textContent = curName;
+        subscribeMyReports();
+    }
+});
+
+function cleanupSubs() {
+    if (unsubMain) { unsubMain(); unsubMain = null; }
+    if (unsubReports) { unsubReports(); unsubReports = null; }
+    if (unsubSupervisors) { unsubSupervisors(); unsubSupervisors = null; }
+}
+
+// ============ بيانات الجدول الرئيسي (مستند واحد بيتزامن لحظيًا) ============
+function subscribeMain() {
+    unsubMain = onSnapshot(doc(db, 'data', 'main'), snap => {
+        setStatus(true, 'متزامن لحظيًا');
+        const d = snap.exists() ? snap.data() : {};
+        teachers = d.teachers || [];
+        subjects = d.subjects || [];
+        classes = d.classes || [];
+        photographers = d.photographers || [];
+        times = d.times || [];
+        absent = d.absent || {};
+        schedule = d.schedule || {};
+        schoolNameText = d.schoolName || 'نظام إدارة جدول الحصص';
+        document.getElementById('adminSchoolName').textContent = schoolNameText;
+        document.getElementById('svSchoolName').textContent = schoolNameText;
+        document.getElementById('schoolNameInput').value = schoolNameText;
+        renderAll();
+    }, err => { setStatus(false, 'اتقطع الاتصال، بيحاول يرجع...'); console.error(err); });
+}
+async function persistMain() {
+    try {
+        await setDoc(doc(db, 'data', 'main'), { teachers, subjects, classes, photographers, times, schedule, absent, schoolName: schoolNameText });
+    } catch (e) { alert('❌ فشل الحفظ، تأكدي من الاتصال بالإنترنت'); console.error(e); }
+}
+
+function renderAll() {
+    if (curRole === 'admin') {
+        renderTeachers(); renderSubjects(); renderClassesList(); renderPhotographers(); renderTimesList();
+        renderAdminDayTabs(); renderAdminGrid();
+        renderAbsenceDayTabs(); renderAbsencePanel();
+        renderSupervisorClassCheckboxes(); renderSupervisorsList();
+        renderReportsClassFilter(); renderAllReports();
+    } else {
+        renderSvClassSelect(); renderSvDayTabs(); renderSvSchedule(); renderMyReports();
+    }
+}
+
+// ============ تبويبات الأدمن ============
+window.showPanel = function(id) {
+    document.querySelectorAll('#adminApp .tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('#adminApp .panel').forEach(p => p.classList.remove('active'));
+    event.target.classList.add('active');
+    document.getElementById(id).classList.add('active');
+};
+
+window.saveSchoolName = function() {
+    schoolNameText = document.getElementById('schoolNameInput').value.trim();
+    persistMain();
+};
+
+// ============ المدرّسات ============
+function teacherCount(name) { return Object.values(schedule).filter(l => l && (l.teacher === name || l.teacher2 === name)).length; }
+window.addTeacher = function() {
+    const name = document.getElementById('newTeacherName').value.trim();
+    const limit = parseInt(document.getElementById('newTeacherLimit').value) || 20;
+    if (!name) return alert('اكتبي اسم المدرّسة');
+    if (teachers.find(t => t.name === name)) return alert('الاسم موجود مسبقاً');
+    teachers.push({ name, limit });
+    document.getElementById('newTeacherName').value = '';
+    persistMain();
+};
+window.deleteTeacher = function(name) {
+    if (!confirm(`حذف ${name}؟`)) return;
+    teachers = teachers.filter(t => t.name !== name);
+    persistMain();
+};
+window.editTeacherLimit = function(name) {
+    const t = teachers.find(x => x.name === name);
+    const v = prompt('الحد الأقصى الجديد:', t.limit);
+    if (v && !isNaN(v)) { t.limit = parseInt(v); persistMain(); }
+};
+function renderTeachers() {
+    document.getElementById('teachersList').innerHTML = teachers.map(t => {
+        const c = teacherCount(t.name), pct = (c / t.limit) * 100;
+        const cls = pct >= 100 ? 'badge-danger' : pct >= 80 ? 'badge-warn' : '';
+        return `<div class="item-card"><div><strong>${esc(t.name)}</strong> <span class="badge ${cls}">${c}/${t.limit} حصة</span></div>
+            <div><button class="btn btn-warning" onclick="editTeacherLimit('${esc(t.name)}')">⚙️</button>
+            <button class="btn btn-danger" onclick="deleteTeacher('${esc(t.name)}')">🗑️</button></div></div>`;
+    }).join('') || '<p class="muted">لا يوجد مدرّسات بعد</p>';
+}
+
+// ============ المواد ============
+window.addSubject = function() {
+    const name = document.getElementById('newSubjectName').value.trim();
+    if (!name) return; if (subjects.includes(name)) return alert('موجودة مسبقاً');
+    subjects.push(name); document.getElementById('newSubjectName').value = ''; persistMain();
+};
+window.deleteSubject = function(name) { if (!confirm(`حذف ${name}؟`)) return; subjects = subjects.filter(s => s !== name); persistMain(); };
+function renderSubjects() {
+    document.getElementById('subjectsList').innerHTML = subjects.map(s =>
+        `<div class="item-card"><strong>${esc(s)}</strong><button class="btn btn-danger" onclick="deleteSubject('${esc(s)}')">🗑️</button></div>`
+    ).join('') || '<p class="muted">لا توجد مواد بعد</p>';
+}
+
+// ============ الكلاسات ============
+window.addClass = function() {
+    const name = document.getElementById('newClassName').value.trim();
+    if (!name) return; if (classes.includes(name)) return alert('موجود مسبقاً');
+    classes.push(name); document.getElementById('newClassName').value = ''; persistMain();
+};
+window.deleteClass = function(name) {
+    if (!confirm(`حذف كلاس ${name}؟ (الحصص المرتبطة بيه هتتشال)`)) return;
+    classes = classes.filter(c => c !== name);
+    Object.keys(schedule).forEach(k => { if (k.startsWith(name + '__')) delete schedule[k]; });
+    persistMain();
+};
+function renderClassesList() {
+    document.getElementById('classesList').innerHTML = classes.map(c =>
+        `<div class="item-card"><strong>${esc(c)}</strong><button class="btn btn-danger" onclick="deleteClass('${esc(c)}')">🗑️</button></div>`
+    ).join('') || '<p class="muted">لا توجد كلاسات بعد</p>';
+}
+
+// ============ المصورات ============
+function photoCount(name) { return Object.values(schedule).filter(l => l && l.photographer === name).length; }
+window.addPhotographer = function() {
+    const name = document.getElementById('newPhotoName').value.trim();
+    const limit = parseInt(document.getElementById('newPhotoLimit').value) || 20;
+    if (!name) return; if (photographers.find(p => p.name === name)) return alert('موجودة مسبقاً');
+    photographers.push({ name, limit }); document.getElementById('newPhotoName').value = ''; persistMain();
+};
+window.deletePhotographer = function(name) {
+    if (!confirm(`حذف ${name}؟`)) return;
+    photographers = photographers.filter(p => p.name !== name);
+    Object.values(schedule).forEach(l => { if (l && l.photographer === name) l.photographer = ''; });
+    persistMain();
+};
+window.editPhotoLimit = function(name) {
+    const p = photographers.find(x => x.name === name);
+    const v = prompt('الحد الأقصى الجديد:', p.limit);
+    if (v && !isNaN(v)) { p.limit = parseInt(v); persistMain(); }
+};
+function renderPhotographers() {
+    document.getElementById('photographersList').innerHTML = photographers.map(p => {
+        const c = photoCount(p.name), pct = (c / p.limit) * 100;
+        const cls = pct >= 100 ? 'badge-danger' : pct >= 80 ? 'badge-warn' : '';
+        return `<div class="item-card"><div><strong>📷 ${esc(p.name)}</strong> <span class="badge ${cls}">${c}/${p.limit} حصة</span></div>
+            <div><button class="btn btn-warning" onclick="editPhotoLimit('${esc(p.name)}')">⚙️</button>
+            <button class="btn btn-danger" onclick="deletePhotographer('${esc(p.name)}')">🗑️</button></div></div>`;
+    }).join('') || '<p class="muted">لا توجد مصورات بعد</p>';
+}
+
+// ============ الأوقات ============
+window.addTime = function() {
+    const t = document.getElementById('newTimeName').value.trim();
+    if (!t) return; if (times.includes(t)) return alert('موجود مسبقاً');
+    times.push(t); document.getElementById('newTimeName').value = ''; persistMain();
+};
+window.deleteTime = function(t) {
+    if (!confirm(`حذف الوقت ${t}؟`)) return;
+    times = times.filter(x => x !== t);
+    Object.keys(schedule).forEach(k => { if (k.endsWith('__' + t)) delete schedule[k]; });
+    persistMain();
+};
+function renderTimesList() {
+    document.getElementById('timesList').innerHTML = times.map(t =>
+        `<div class="item-card"><strong>${esc(t)}</strong><button class="btn btn-danger" onclick="deleteTime('${esc(t)}')">🗑️</button></div>`
+    ).join('') || '<p class="muted">لا توجد أوقات بعد</p>';
+}
+
+// ============ الجدول الرئيسي (أدمن) ============
+function renderAdminDayTabs() {
+    document.getElementById('adminDayTabs').innerHTML = days.map(d =>
+        `<button class="day-tab ${d === adminDay ? 'active' : ''}" onclick="setAdminDay('${d}')">${d}</button>`).join('');
+}
+window.setAdminDay = function(d) { adminDay = d; renderAdminDayTabs(); renderAdminGrid(); };
+function lessonHtml(l, sub) {
+    if (!l) return `<div class="cell-subject" style="color:#ccc;">+ إضافة</div>`;
+    if (l.type === 'break') return `<div class="cell-subject">🕐 راحة</div>${l.comment ? `<div class="cell-comment">${esc(l.comment)}</div>` : ''}`;
+    const people = [l.teacher, l.teacher2].filter(Boolean).join(' + ');
+    return `<div class="cell-subject">${esc(l.subject)}</div><div class="cell-people">${esc(sub !== undefined ? sub : people)}</div>
+        ${l.photographer ? `<div class="cell-photo">📷 ${esc(l.photographer)}</div>` : ''}
+        ${l.comment ? `<div class="cell-comment">📝 ${esc(l.comment)}</div>` : ''}`;
+}
+function reportDot(key) {
+    const n = allReports.filter(r => r.key === key).length;
+    return `<span class="report-dot" style="background:${n ? '#0d6efd' : 'rgba(0,0,0,.15)'}" onclick="event.stopPropagation();openReportModal('${key}')">${n || '📝'}</span>`;
+}
+function renderAdminGrid() {
+    if (!classes.length || !times.length) { document.getElementById('adminScheduleGrid').innerHTML = '<p class="muted">ضيفي كلاسات وأوقات الأول</p>'; return; }
+    let html = '<table><thead><tr><th>الكلاس</th>' + times.map(t => `<th>${esc(t)}</th>`).join('') + '</tr></thead><tbody>';
+    classes.forEach(cls => {
+        html += `<tr><th>${esc(cls)}</th>`;
+        times.forEach(time => {
+            const key = keyOf(cls, adminDay, time), l = schedule[key];
+            html += `<td class="lesson-cell" onclick="openCellModal('${key}')">${reportDot(key)}${lessonHtml(l)}</td>`;
+        });
+        html += '</tr>';
+    });
+    document.getElementById('adminScheduleGrid').innerHTML = html + '</tbody></table>';
+}
+
+// ============ مودال تعديل الحصة ============
+window.openCellModal = function(key) {
+    currentCellKey = key;
+    const l = schedule[key];
+    document.getElementById('cellType').value = l && l.type === 'break' ? 'break' : 'lesson';
+    document.getElementById('cellSubject').innerHTML = subjects.map(s => `<option ${l && l.subject === s ? 'selected' : ''}>${esc(s)}</option>`).join('');
+    const teacherOpts = ['<option value="">-- بدون --</option>', ...teachers.map(t => `<option value="${esc(t.name)}">${esc(t.name)} (${teacherCount(t.name)}/${t.limit})</option>`)].join('');
+    document.getElementById('cellTeacher1').innerHTML = teacherOpts;
+    document.getElementById('cellTeacher2').innerHTML = teacherOpts;
+    document.getElementById('cellPhotographer').innerHTML = ['<option value="">-- بدون --</option>', ...photographers.map(p => `<option value="${esc(p.name)}">${esc(p.name)} (${photoCount(p.name)}/${p.limit})</option>`)].join('');
+    if (l) {
+        document.getElementById('cellTeacher1').value = l.teacher || '';
+        document.getElementById('cellTeacher2').value = l.teacher2 || '';
+        document.getElementById('cellPhotographer').value = l.photographer || '';
+        document.getElementById('cellComment').value = l.comment || '';
+    } else { document.getElementById('cellTeacher1').value = ''; document.getElementById('cellTeacher2').value = ''; document.getElementById('cellPhotographer').value = ''; document.getElementById('cellComment').value = ''; }
+    document.getElementById('cellConflictMsg').innerHTML = '';
+    toggleCellType();
+    document.getElementById('cellModal').classList.add('active');
+};
+window.closeCellModal = function() { document.getElementById('cellModal').classList.remove('active'); currentCellKey = null; };
+window.toggleCellType = function() {
+    document.getElementById('cellLessonFields').style.display = document.getElementById('cellType').value === 'break' ? 'none' : 'block';
+};
+function busyElsewhere(name, day, time, exceptKey) {
+    for (const cls of classes) {
+        const k = keyOf(cls, day, time), l = schedule[k];
+        if (k !== exceptKey && l && [l.teacher, l.teacher2, l.photographer].includes(name)) return cls;
+    }
+    return null;
+}
+window.saveCellModal = function() {
+    const [cls, day, time] = currentCellKey.split('__');
+    const type = document.getElementById('cellType').value;
+    if (type === 'break') {
+        schedule[currentCellKey] = { type: 'break', comment: document.getElementById('cellComment').value.trim() };
+        persistMain(); closeCellModal(); return;
+    }
+    const subject = document.getElementById('cellSubject').value;
+    const teacher = document.getElementById('cellTeacher1').value;
+    const teacher2 = document.getElementById('cellTeacher2').value;
+    const photographer = document.getElementById('cellPhotographer').value;
+    const comment = document.getElementById('cellComment').value.trim();
+    for (const name of [teacher, teacher2].filter(Boolean)) {
+        const conflictCls = busyElsewhere(name, day, time, currentCellKey);
+        if (conflictCls) { document.getElementById('cellConflictMsg').innerHTML = `<div class="msg msg-error">❌ ${esc(name)} موجودة بالفعل في كلاس ${esc(conflictCls)} في نفس الوقت</div>`; return; }
+    }
+    if (teacher && teacher === teacher2) { document.getElementById('cellConflictMsg').innerHTML = '<div class="msg msg-error">مينفعش نفس المدرّسة مرتين</div>'; return; }
+    schedule[currentCellKey] = { type: 'lesson', subject, teacher, teacher2, photographer, comment };
+    persistMain(); closeCellModal();
+};
+window.clearCellModal = function() { delete schedule[currentCellKey]; persistMain(); closeCellModal(); };
+
+// ============ إدارة السوبرفايزرز ============
+function renderSupervisorClassCheckboxes() {
+    document.getElementById('svClassesCheckboxes').innerHTML = classes.map(c =>
+        `<label style="display:flex;align-items:center;gap:4px;background:#fff;padding:6px 10px;border-radius:6px;border:1px solid #dee2e6;">
+            <input type="checkbox" value="${esc(c)}" class="sv-class-cb"> ${esc(c)}</label>`).join('') || '<span class="muted">ضيفي كلاسات الأول</span>';
+}
+function subscribeSupervisors() {
+    unsubSupervisors = onSnapshot(query(collection(db, 'users'), where('role', '==', 'supervisor')), snap => {
+        supervisors = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+        renderSupervisorsList();
+    }, err => console.error(err));
+}
+window.addSupervisor = async function() {
+    const name = document.getElementById('svName').value.trim();
+    const email = document.getElementById('svEmail').value.trim();
+    const pass = document.getElementById('svPass').value;
+    const picked = [...document.querySelectorAll('.sv-class-cb:checked')].map(c => c.value);
+    if (!name || !email || pass.length < 6) return alert('اكتبي الاسم والإيميل، وكلمة سر 6 حروف على الأقل');
+    if (!picked.length) return alert('اختاري كلاس واحد على الأقل');
+    const secondary = initializeApp(firebaseConfig, 'sv-' + Date.now());
+    const secAuth = getAuth(secondary);
+    try {
+        const cred = await createUserWithEmailAndPassword(secAuth, email, pass);
+        await setDoc(doc(db, 'users', cred.user.uid), { name, email, role: 'supervisor', classes: picked });
+        await signOut(secAuth);
+        document.getElementById('svName').value = ''; document.getElementById('svEmail').value = ''; document.getElementById('svPass').value = '';
+        document.querySelectorAll('.sv-class-cb').forEach(c => c.checked = false);
+        alert('✅ اتضاف السوبرفايزر بنجاح');
+    } catch (e) {
+        alert('❌ ' + (e.code === 'auth/email-already-in-use' ? 'الإيميل ده مستخدم قبل كده' : 'حصل خطأ: ' + e.message));
+    } finally { try { await deleteApp(secondary); } catch (e) {} }
+};
+window.editSupervisorClasses = function(uid) {
+    const sv = supervisors.find(s => s.uid === uid);
+    const cur = sv.classes || [];
+    document.getElementById('reportModalBody').innerHTML = `
+        <div class="msg msg-ok">كلاسات <strong>${esc(sv.name)}</strong></div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
+            ${classes.map(c => `<label style="display:flex;align-items:center;gap:4px;background:#f8f9fa;padding:6px 10px;border-radius:6px;border:1px solid #dee2e6;">
+                <input type="checkbox" value="${esc(c)}" class="edit-sv-cb" ${cur.includes(c) ? 'checked' : ''}> ${esc(c)}</label>`).join('') || '<span class="muted">لا توجد كلاسات</span>'}
+        </div>
+        <button class="btn btn-success" onclick="saveSupervisorClasses('${uid}')">💾 حفظ</button>
+    `;
+    document.getElementById('reportModal').classList.add('active');
+};
+window.saveSupervisorClasses = function(uid) {
+    const arr = [...document.querySelectorAll('.edit-sv-cb:checked')].map(c => c.value);
+    updateDoc(doc(db, 'users', uid), { classes: arr });
+    closeReportModal();
+};
+window.toggleSupervisorDisabled = function(uid, disabled) { updateDoc(doc(db, 'users', uid), { disabled: !disabled }); };
+function renderSupervisorsList() {
+    document.getElementById('supervisorsList').innerHTML = supervisors.map(s => `
+        <div class="item-card">
+            <div><strong>${esc(s.name)}</strong> <small class="muted">${esc(s.email)}</small><br>
+                <span class="badge">${(s.classes || []).map(esc).join('، ') || 'مفيش كلاسات محددة'}</span>
+                ${s.disabled ? '<span class="badge badge-danger">متوقف</span>' : ''}</div>
+            <div><button class="btn btn-info" onclick="editSupervisorClasses('${s.uid}')">✏️ الكلاسات</button>
+                <button class="btn ${s.disabled ? 'btn-success' : 'btn-warning'}" onclick="toggleSupervisorDisabled('${s.uid}', ${!!s.disabled})">${s.disabled ? '✅ تفعيل' : '⛔ تعطيل'}</button></div>
+        </div>`).join('') || '<p class="muted">لا يوجد سوبرفايزرز بعد</p>';
+}
+
+// ============ التقارير: أدمن (كل الكلاسات) ============
+function subscribeAllReports() {
+    unsubReports = onSnapshot(collection(db, 'reports'), snap => {
+        allReports = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.ts - a.ts);
+        renderAllReports(); renderAdminGrid();
+    }, err => console.error(err));
+}
+function renderReportsClassFilter() {
+    const sel = document.getElementById('reportsClassFilter'), keep = sel.value;
+    sel.innerHTML = '<option value="">-- الكل --</option>' + classes.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+    sel.value = keep;
+}
+window.renderAllReports = function() {
+    const filter = document.getElementById('reportsClassFilter').value;
+    const rows = allReports.filter(r => !filter || r.cls === filter);
+    document.getElementById('allReportsList').innerHTML = rows.length ? rows.map(r => `
+        <div class="item-card" style="align-items:flex-start;flex-direction:column;gap:6px;">
+            <div style="font-size:13px;color:#888;">${esc(r.cls)} - ${esc(r.day)} - ${esc(r.time)} - ${esc(r.subject || '')} • بواسطة ${esc(r.by)} • ${new Date(r.ts).toLocaleString('ar-EG')}</div>
+            <div>${esc(r.text)}</div>
+            ${r.reply ? `<div class="reply-box"><strong>🗣️ ردك:</strong> ${esc(r.reply)}</div>` : ''}
+            <div style="display:flex;gap:8px;width:100%;">
+                <input type="text" id="reply-${r.id}" placeholder="اكتبي ردًا..." value="${esc(r.reply || '')}" style="flex:1;">
+                <button class="btn btn-primary" onclick="sendReply('${r.id}')">إرسال</button>
+            </div>
+        </div>`).join('') : '<p class="muted">لا توجد تقارير</p>';
+};
+window.sendReply = function(id) {
+    const text = document.getElementById('reply-' + id).value.trim();
+    updateDoc(doc(db, 'reports', id), { reply: text, replyBy: curName, replyTs: Date.now() });
+};
+
+// ============ مودال تقارير حصة معينة (أدمن) ============
+window.openReportModal = function(key) {
+    currentReportKey = key;
+    const [cls, day, time] = key.split('__');
+    const l = schedule[key];
+    const rows = allReports.filter(r => r.key === key);
+    document.getElementById('reportModalBody').innerHTML = `
+        <div class="msg msg-ok">${esc(cls)} - ${esc(day)} - ${esc(time)}${l && l.subject ? ' - ' + esc(l.subject) : ''}</div>
+        ${rows.length ? rows.map(r => `
+            <div class="item-card" style="align-items:flex-start;flex-direction:column;gap:6px;">
+                <div style="font-size:13px;color:#888;">بواسطة ${esc(r.by)} • ${new Date(r.ts).toLocaleString('ar-EG')}</div>
+                <div>${esc(r.text)}</div>
+                ${r.reply ? `<div class="reply-box"><strong>🗣️ ${esc(r.replyBy || 'المشرف')}:</strong> ${esc(r.reply)}</div>` : ''}
+            </div>`).join('') : '<p class="muted">لا توجد تقارير على الحصة دي</p>'}
+    `;
+    document.getElementById('reportModal').classList.add('active');
+};
+window.closeReportModal = function() { document.getElementById('reportModal').classList.remove('active'); currentReportKey = null; };
+
+// ============ جانب السوبرفايزر ============
+function renderSvClassSelect() {
+    const sel = document.getElementById('svClassSelect'), keep = sel.value;
+    sel.innerHTML = curClasses.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('') || '<option value="">لا يوجد كلاسات محددة لك</option>';
+    if (curClasses.includes(keep)) sel.value = keep;
+}
+function renderSvDayTabs() {
+    document.getElementById('svDayTabs').innerHTML = days.map(d =>
+        `<button class="day-tab ${d === svDay ? 'active' : ''}" onclick="setSvDay('${d}')">${d}</button>`).join('');
+}
+window.setSvDay = function(d) { svDay = d; renderSvDayTabs(); renderSvSchedule(); };
+window.renderSvSchedule = function() {
+    const cls = document.getElementById('svClassSelect').value;
+    const tbl = document.getElementById('svScheduleTable');
+    if (!cls || !times.length) { tbl.innerHTML = ''; return; }
+    tbl.innerHTML = '<thead><tr><th>الوقت</th><th>الحصة</th></tr></thead><tbody>' + times.map(time => {
+        const key = keyOf(cls, svDay, time), l = schedule[key];
+        return `<tr><th>${esc(time)}</th><td class="lesson-cell" style="cursor:default;">${reportDotSv(key)}${lessonHtml(l)}</td></tr>`;
+    }).join('') + '</tbody>';
+};
+function reportDotSv(key) {
+    const l = schedule[key];
+    if (!l) return '';
+    const n = allReports.filter(r => r.key === key).length;
+    return `<span class="report-dot" style="background:${n ? '#0d6efd' : 'rgba(0,0,0,.15)'}" onclick="openSvReportModal('${key}')">${n || '📝'}</span>`;
+}
+window.openSvReportModal = function(key) {
+    currentReportKey = key;
+    const [cls, day, time] = key.split('__');
+    const l = schedule[key];
+    const rows = allReports.filter(r => r.key === key);
+    document.getElementById('reportModalBody').innerHTML = `
+        <div class="msg msg-ok">${esc(cls)} - ${esc(day)} - ${esc(time)}${l && l.subject ? ' - ' + esc(l.subject) : ''}</div>
+        <div class="field"><label>تقرير جديد</label><textarea id="svReportText" rows="3"></textarea></div>
+        <button class="btn btn-success" onclick="submitSvReport()">💾 إرسال التقرير</button>
+        <h3 style="margin-top:16px;">التقارير السابقة</h3>
+        ${rows.length ? rows.map(r => `
+            <div class="item-card" style="align-items:flex-start;flex-direction:column;gap:6px;">
+                <div style="font-size:13px;color:#888;">بواسطة ${esc(r.by)} • ${new Date(r.ts).toLocaleString('ar-EG')}</div>
+                <div>${esc(r.text)}</div>
+                ${r.reply ? `<div class="reply-box"><strong>🗣️ ${esc(r.replyBy || 'المشرف')}:</strong> ${esc(r.reply)}</div>` : ''}
+            </div>`).join('') : '<p class="muted">لا توجد تقارير سابقة</p>'}
+    `;
+    document.getElementById('reportModal').classList.add('active');
+};
+window.submitSvReport = async function() {
+    const text = document.getElementById('svReportText').value.trim();
+    if (!text) return alert('اكتبي نص التقرير');
+    const [cls, day, time] = currentReportKey.split('__');
+    if (!curClasses.includes(cls)) { alert(`❌ الكلاس "${cls}" مش من ضمن كلاساتك. كلّمي الأدمن يتأكد من ضبط الكلاسات بتاعتك من تبويب السوبرفايزرز.`); return; }
+    if (!curUser) { alert('❌ محصلش تسجيل دخول صحيح، جرّبي تسجّلي خروج ودخول تاني'); return; }
+    const l = schedule[currentReportKey];
+    try {
+        await addDoc(collection(db, 'reports'), {
+            key: currentReportKey, cls, day, time, subject: l ? (l.subject || '') : '',
+            text, by: curName, byUid: curUser.uid, ts: Date.now(), reply: '', replyBy: '', replyTs: null
+        });
+        closeReportModal();
+    } catch (e) {
+        console.error(e);
+        alert('❌ متقدرتيش تضيفي التقرير.\nسبب الخطأ: ' + (e.code || e.message || 'غير معروف') + '\nابعتي الرسالة دي للأدمن.');
+    }
+};
+function subscribeMyReports() {
+    if (!curClasses.length) { allReports = []; renderMyReports(); return; }
+    unsubReports = onSnapshot(query(collection(db, 'reports'), where('cls', 'in', curClasses.slice(0, 10))), snap => {
+        allReports = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.ts - a.ts);
+        renderMyReports(); renderSvSchedule();
+    }, err => console.error(err));
+}
+function renderMyReports() {
+    const mine = allReports.filter(r => r.byUid === curUser.uid);
+    document.getElementById('svMyReports').innerHTML = mine.length ? mine.map(r => `
+        <div class="item-card" style="align-items:flex-start;flex-direction:column;gap:6px;">
+            <div style="font-size:13px;color:#888;">${esc(r.cls)} - ${esc(r.day)} - ${esc(r.time)} • ${new Date(r.ts).toLocaleString('ar-EG')}</div>
+            <div>${esc(r.text)}</div>
+            ${r.reply ? `<div class="reply-box"><strong>🗣️ رد المشرف:</strong> ${esc(r.reply)}</div>` : '<div class="muted" style="font-size:13px;">لسه المشرف ما ردش</div>'}
+        </div>`).join('') : '<p class="muted">لسه ما ضفتيش تقارير</p>';
+}
+
+// ============ الغياب والاحتياط ============
+function renderAbsenceDayTabs() {
+    document.getElementById('absenceDayTabs').innerHTML = days.map(d =>
+        `<button class="day-tab ${d === absenceDay ? 'active' : ''}" onclick="setAbsenceDay('${d}')">${esc(d)}</button>`).join('');
+}
+window.setAbsenceDay = function(d) { absenceDay = d; renderAbsenceDayTabs(); renderAbsencePanel(); };
+window.togglePresence = function(name, present) {
+    const list = (absent[absenceDay] || []).filter(n => n !== name);
+    if (!present) list.push(name);
+    absent[absenceDay] = list;
+    persistMain();
+};
+// بترجع تفاصيل مكان انشغال المدرّسة في نفس اليوم/الوقت (أو null لو فاضية)
+function whereBusy(name, day, time, exceptKey) {
+    for (const cls of classes) {
+        const key = keyOf(cls, day, time), l = schedule[key];
+        if (key === exceptKey || !l) continue;
+        if (l.teacher === name || l.teacher2 === name) {
+            const other = [l.teacher, l.teacher2].find(t => t && t !== name);
+            return { cls, subject: l.type === 'break' ? 'فترة راحة' : (l.subject || ''), other };
+        }
+    }
+    return null;
+}
+function renderAbsencePanel() {
+    const abs = absent[absenceDay] || [];
+    document.getElementById('absenceTeachersList').innerHTML = teachers.map(t => `
+        <label class="item-card" style="cursor:pointer;${abs.includes(t.name) ? 'opacity:.5;' : ''}">
+            <span>${esc(t.name)}</span>
+            <input type="checkbox" ${abs.includes(t.name) ? '' : 'checked'} onchange="togglePresence('${esc(t.name)}', this.checked)" style="width:20px;height:20px;">
+        </label>`).join('') || '<p class="muted">ضيفي مدرّسات الأول</p>';
+
+    let need = '';
+    classes.forEach(cls => {
+        times.forEach(time => {
+            const key = keyOf(cls, absenceDay, time), l = schedule[key];
+            if (!l || l.type === 'break') return;
+            [l.teacher, l.teacher2].filter(t => t && abs.includes(t)).forEach(gone => {
+                const candidates = teachers.filter(t => t.name !== gone && !abs.includes(t.name));
+                const opts = candidates.map(t => {
+                    const busy = whereBusy(t.name, absenceDay, time, key);
+                    if (busy) return `<option disabled>⛔ ${esc(t.name)} — مشغولة في: ${esc(busy.cls)} (${esc(busy.subject)})${busy.other ? ' مع ' + esc(busy.other) : ''}</option>`;
+                    return `<option value="${esc(t.name)}">${esc(t.name)}</option>`;
+                }).join('');
+                need += `<tr><td>${esc(time)}</td><td>${esc(cls)}</td><td>${esc(l.subject || '')}</td><td style="color:#dc3545;">${esc(gone)}</td>
+                    <td><select onchange="applySub('${key}', '${esc(gone)}', this.value)"><option value="">-- اختاري بديلة --</option>${opts}</select></td></tr>`;
+            });
+        });
+    });
+    document.getElementById('absenceNeedList').innerHTML = need
+        ? `<table><thead><tr><th>الوقت</th><th>الكلاس</th><th>المادة</th><th>الغايبة</th><th>البديلة</th></tr></thead><tbody>${need}</tbody></table>`
+        : '<p class="msg msg-ok">✅ مفيش حصص محتاجة بديلة في اليوم ده</p>';
+
+    let done = '';
+    classes.forEach(cls => times.forEach(time => {
+        const key = keyOf(cls, absenceDay, time), l = schedule[key];
+        if (l && l.orig) {
+            const was = [l.orig.teacher, l.orig.teacher2].filter(Boolean).join(' + ');
+            const now = [l.teacher, l.teacher2].filter(Boolean).join(' + ');
+            done += `<tr><td>${esc(time)}</td><td>${esc(cls)}</td><td>${esc(was)}</td><td>${esc(now)}</td>
+                <td><button class="btn btn-warning" onclick="revertSub('${key}')">↩️ إرجاع</button></td></tr>`;
+        }
+    }));
+    document.getElementById('absenceDoneList').innerHTML = done
+        ? `<table><thead><tr><th>الوقت</th><th>الكلاس</th><th>الأصل</th><th>الحالي</th><th></th></tr></thead><tbody>${done}</tbody></table>`
+        : '<p class="muted">لا توجد تبديلات لسه</p>';
+}
+window.applySub = function(key, gone, to) {
+    if (!to) return;
+    const [cls, day, time] = key.split('__');
+    const busy = whereBusy(to, day, time, key);
+    if (busy) { alert(`❌ ${to} مشغولة بالفعل في ${busy.cls} في نفس الوقت`); renderAbsencePanel(); return; }
+    const l = schedule[key];
+    if (!l.orig) l.orig = { teacher: l.teacher || '', teacher2: l.teacher2 || '' };
+    if (l.teacher === gone) l.teacher = to;
+    else if (l.teacher2 === gone) l.teacher2 = to;
+    persistMain();
+};
+window.revertSub = function(key) {
+    const l = schedule[key];
+    if (!l || !l.orig) return;
+    l.teacher = l.orig.teacher; l.teacher2 = l.orig.teacher2;
+    delete l.orig;
+    persistMain();
+};
+window.revertAllDay = function() {
+    if (!confirm(`إرجاع كل تبديلات يوم ${absenceDay}؟`)) return;
+    let any = false;
+    classes.forEach(cls => times.forEach(time => {
+        const key = keyOf(cls, absenceDay, time), l = schedule[key];
+        if (l && l.orig) { l.teacher = l.orig.teacher; l.teacher2 = l.orig.teacher2; delete l.orig; any = true; }
+    }));
+    if (any) persistMain(); else alert('لا توجد تبديلات في اليوم ده');
+};
+
+// ============ نسخة احتياطية JSON ============
+window.downloadBackup = function() {
+    const payload = { teachers, subjects, classes, photographers, times, schedule, absent, schoolName: schoolNameText, exportedAt: new Date().toISOString() };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `نسخة_احتياطية_${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+};
+window.restoreBackup = function(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+        let data;
+        try { data = JSON.parse(reader.result); } catch (e) { alert('❌ الملف ده مش JSON صحيح'); return; }
+        if (!confirm('هيتم استبدال كل البيانات الحالية ببيانات الملف ده لكل المستخدمين. متأكدة؟')) return;
+        teachers = data.teachers || []; subjects = data.subjects || []; classes = data.classes || [];
+        photographers = data.photographers || []; times = data.times || []; schedule = data.schedule || {};
+        absent = data.absent || {}; schoolNameText = data.schoolName || schoolNameText;
+        await persistMain();
+        alert('✅ اترجعت البيانات بنجاح');
+    };
+    reader.readAsText(file);
+    input.value = '';
+};
+</script>
+</body>
+</html>
